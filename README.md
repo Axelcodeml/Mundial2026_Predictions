@@ -1,4 +1,4 @@
-# Simulaciones_Mundial
+# Simulaciones Mundial 2026
 Código para hacer el web scrapping de las estadísticas de los últimos partidos de selecciones, ajustar un modelo XGBoost para predecir los resultados y una simulación de Montecarlo de 10.000 mundiales simulados para predecir quién ganará y el performance esperado de cada selección. A mayores se incluyen todos los datos scrappeados. Iré actualizando y explicando todo más en detalle en `@jyts__`. 
 
 # Instrucciones de Uso
