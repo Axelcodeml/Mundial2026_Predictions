@@ -24,6 +24,11 @@ Con los datos listos, en `Modelling.ipynb` se entrenan dos modelos:
 ### 5️⃣ El comportamiento estocástico: Monte Carlo con 10.000 mundiales
 ¿Por qué no basta con simular un mundial? Porque la realidad es **estocástica**. Si solo simulásemos uno, una selección con el 51% de probabilidades de pasar, pasaría exactamente igual que una con el 99%. Para capturar el efecto de la varianza, simulamos **10.000 mundiales diferentes**: el equipo del 51% se clasifica en ~5.100 de ellos y el del 99% en ~9.900. Así vemos el efecto de las probabilidades en todos los cruces que tendríamos hasta la final — fase de grupos partido a partido, mejores terceros, dieciseisavos, octavos, cuartos, semifinales y final.
 
+### 🌐 Web de predicciones diarias — [`05_Web/`](05_Web/) → [`docs/`](docs/)
+Una página estática (lista para **GitHub Pages**) con las predicciones de cada día: probabilidades de victoria calibradas, córners esperados (líneas 7.5/8.5/9.5), tarjetas esperadas (líneas 3.5/4.5), marcador más probable, tabla de campeón por Monte Carlo y el cuadro completo de eliminatorias. La sección «Partidos de hoy» se calcula con la fecha local del visitante, así que **se actualiza sola cada día** sin regenerar nada; además, un workflow de GitHub Actions ([`.github/workflows/actualizar_web.yml`](.github/workflows/actualizar_web.yml)) la regenera a diario por si cambian los datos.
+
+Para activarla: en GitHub ve a **Settings → Pages → Source: Deploy from a branch → `main` / `docs/`**. La web quedará en `https://<usuario>.github.io/Simulaciones_Mundial/`.
+
 ### 6️⃣ Predicción de los 104 partidos — [`04_Prediccion/`](04_Prediccion/) → [`Predicciones/`](Predicciones/)
 `prediccion_mundial.py` es el pipeline completo en un script: entrena los modelos (si no existen los `.pkl`), predice los 72 partidos de la fase de grupos, construye el cuadro completo de eliminatorias con el resultado más probable de cada cruce (incluido el 3er puesto) y corre el Monte Carlo. `generar_informe.py` lo convierte en un informe legible.
 
@@ -43,6 +48,10 @@ Con los datos listos, en `Modelling.ipynb` se entrenan dos modelos:
 ├── 04_Prediccion/            # Pipeline end-to-end en script
 │   ├── prediccion_mundial.py
 │   └── generar_informe.py
+├── 05_Web/                   # Generador de la web de predicciones diarias
+│   └── generar_web.py
+├── docs/                     # Web estática (GitHub Pages)
+│   └── index.html
 ├── Data/                     # Datos scrapeados y procesados (CSV)
 └── Predicciones/             # Predicción de los 104 partidos + Monte Carlo
     └── PREDICCIONES.md
@@ -61,6 +70,9 @@ python 01_Scraping/Scrapper.py
 # Predicción completa del Mundial (entrena + simula 10.000 mundiales)
 python 04_Prediccion/prediccion_mundial.py
 python 04_Prediccion/generar_informe.py
+
+# Web de predicciones diarias (docs/index.html)
+python 05_Web/generar_web.py
 ```
 
 ## 💡 Inspírate
