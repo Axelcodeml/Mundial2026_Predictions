@@ -1,6 +1,14 @@
 # Simulaciones Mundial 2026
 Código para hacer el web scrapping de las estadísticas de los últimos partidos de selecciones, ajustar un modelo XGBoost para predecir los resultados y una simulación de Montecarlo de 10.000 mundiales simulados para predecir quién ganará y el performance esperado de cada selección. A mayores se incluyen todos los datos scrappeados. Iré actualizando y explicando todo más en detalle en `@jyts__`. 
 
+# 🏆 Predicción de los 104 partidos del Mundial 2026
+En la carpeta [`Predicciones/`](Predicciones/) está la **predicción completa del torneo** generada con el modelo de este repositorio (ejecutando `prediccion_mundial.py`, un port a script de los notebooks):
+
+- [`PREDICCIONES.md`](Predicciones/PREDICCIONES.md) — informe con los 104 partidos: 72 de fase de grupos (marcador más probable + probabilidades 1X2), clasificaciones predichas, cuadro completo de eliminatorias hasta la final y probabilidades de campeón por selección.
+- `predicciones_fase_grupos.csv`, `clasificacion_grupos.csv`, `predicciones_eliminatorias.csv`, `probabilidades_montecarlo.csv` — los mismos resultados en formato datos.
+
+Para regenerarlas: `python prediccion_mundial.py && python generar_informe.py` (entrena los modelos si no existen los `.pkl` y corre 10.000 simulaciones de Monte Carlo).
+
 # Instrucciones de Uso
 ## 1. Extracción de Datos (Scraping)
 Si deseas actualizar el histórico de partidos o replicar la captura de datos desde cero, ejecuta el script `Scrapper.py`.
