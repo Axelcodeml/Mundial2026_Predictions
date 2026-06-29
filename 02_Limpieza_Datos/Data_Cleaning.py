@@ -20,10 +20,10 @@ RUTA_OUT_HISTORICO = './Data/datos_historicos.csv'
 RUTA_OUT_MUNDIAL   = './Data/datos_mundial.csv'
 RUTA_OUT_PARTIDOS  = './Data/partidos_mundial.csv'
 
-FECHA_CORTE   = pd.to_datetime('2026-06-11')
+FECHA_CORTE   = pd.to_datetime('2026-06-11')   # Primer partido del Mundial (ajustar si cambia)
 FECHA_MINIMA  = pd.to_datetime('2021-01-01')   
 
-VENTANAS = [3, 5]   
+VENTANAS = [2, 3, 5]   
 
 equipos_mundial = [
     'Alemania', 'Austria', 'Bélgica', 'Bosnia-Herzegovina', 'Croacia',
@@ -96,6 +96,12 @@ df_ranking['País'] = df_ranking['País'].replace(mapeo_paises)
 
 df['Fecha']         = pd.to_datetime(df['Fecha'], format='%d.%m.%Y %H:%M').dt.normalize()
 df['Fecha']         = pd.to_datetime(df['Fecha']).dt.tz_localize(None)
+
+# Dedup real: mismo partido (Fecha+Local+Visitante), priorizando la fila CON resultado
+df = df.sort_values('Resultado', na_position='first')          # NaN primero → versión con resultado queda última
+df.drop_duplicates(subset=['Fecha', 'Equipo_Local', 'Equipo_Visitante'], keep='last', inplace=True)
+df = df.sort_values('Fecha').reset_index(drop=True)
+
 df_ranking['Fecha'] = pd.to_datetime(df_ranking['Fecha'], format='%d-%m-%Y').dt.tz_localize(None)
 
 df         = df.sort_values('Fecha').reset_index(drop=True)
@@ -171,7 +177,13 @@ columnas = [
 df = df[[c for c in columnas if c in df.columns]]
 
 df_mundial_raw = df[df['Fecha'] >= FECHA_CORTE].copy()
-df_mundial_raw.to_csv(RUTA_OUT_PARTIDOS, index=False)
+
+# ── Detectar partidos ya jugados (tienen resultado válido "X-Y ...") ──
+df_mundial_raw['Jugado'] = df_mundial_raw['Resultado'].apply(
+    lambda x: bool(re.match(r'^\d+-\d+', str(x).strip())) if pd.notna(x) else False
+)
+df_mundial_jugados     = df_mundial_raw[df_mundial_raw['Jugado']].drop(columns=['Jugado']).copy()
+df_mundial_no_jugados  = df_mundial_raw[~df_mundial_raw['Jugado']].drop(columns=['Jugado']).copy()
 
 df = df[df['Fecha'] < FECHA_CORTE].copy()
 
@@ -180,6 +192,11 @@ df = df[
     df['Equipo_Visitante'].isin(equipos_mundial)
 ]
 df = df[df['Fecha'] >= FECHA_MINIMA].copy()
+
+# Incluir partidos del mundial ya jugados en el pipeline (medias móviles actualizadas)
+if not df_mundial_jugados.empty:
+    df = pd.concat([df, df_mundial_jugados], ignore_index=True)
+    df = df.sort_values('Fecha').reset_index(drop=True)
 
 def limpiar_resultados_flashscore(texto):
     texto = str(texto).strip()
@@ -206,38 +223,42 @@ df.drop(columns=['Pases_Local', 'Pases_Visitante'], inplace=True, errors='ignore
 for col in ['Posesión_Local', 'Posesión_Visitante',
             'Pases_Local_Pct', 'Pases_Visitante_Pct']:
     if col in df.columns:
-        df[col] = df[col].astype(str).str.replace('%', '').astype(float) / 100
+        df[col] = pd.to_numeric(
+            df[col].astype(str).str.replace('%', '', regex=False), errors='coerce'
+        ) / 100
 
-df.dropna(subset=['Posesión_Local', 'Posesión_Visitante'], inplace=True)
+# Nota: NO dropeamos por Posesión NaN — la imputación (sección 3) los rellenará
 df.reset_index(drop=True, inplace=True)
 
-df_mundial_sorted = df_mundial_raw.sort_values('Fecha').reset_index(drop=True)
-equipos_vistos, indices_debuts = set(), []
-for idx, row in df_mundial_sorted.iterrows():
-    if row['Equipo_Local'] not in equipos_vistos or row['Equipo_Visitante'] not in equipos_vistos:
-        indices_debuts.append(idx)
-        equipos_vistos.update([row['Equipo_Local'], row['Equipo_Visitante']])
-
-if indices_debuts:
-    df_mundial_first = df_mundial_sorted.iloc[indices_debuts].copy().reset_index(drop=True)
-    df_mundial_first = df_mundial_first.dropna(axis=1, how='all')
-    df = pd.concat([df, df_mundial_first], ignore_index=True)
-
 
 # ============================================================
-# 3. IMPUTACIÓN 
+# 3. IMPUTACIÓN (Corregido)
 # ============================================================
 
-print("Imputando valores faltantes...")
+print("Limpiando y preparando para imputación...")
+
+# --- PASO EXTRA: Limpieza forzosa de strings numéricos antes de imputar ---
+for col in df.columns:
+    if df[col].dtype == 'object':
+        # Intentamos quitar '%' y convertir a numérico
+        limpio = df[col].astype(str).str.replace('%', '')
+        # Convertimos a numérico, lo que no sea número se convierte en NaN
+        df[col] = pd.to_numeric(limpio, errors='ignore') 
+
+# Ahora sí seleccionamos las numéricas
 columnas_texto = [
     'Fecha', 'Equipo_Local', 'Equipo_Visitante',
-    'Resultado', 'Resultado_Prorroga', 'Resultado_Penaltis',
+    'Resultado', 'Resultado_Prorroga', 'Resultado_Penaltis'
 ]
 columnas_numericas = [c for c in df.columns if c not in columnas_texto]
+
+# Convertimos explícitamente a float para evitar errores
+df[columnas_numericas] = df[columnas_numericas].apply(pd.to_numeric, errors='coerce')
 
 df_num_clean = df[columnas_numericas].dropna(axis=1, how='all')
 columnas_numericas_reales = df_num_clean.columns.tolist()
 
+print("Imputando valores faltantes...")
 imputador = IterativeImputer(
     estimator=RandomForestRegressor(n_estimators=10, random_state=42),
     max_iter=10, random_state=42, min_value=0,
@@ -298,10 +319,56 @@ for col_l, col_v, nombre in pares_metricas:
         df[f'{nombre}_Share_Visitante'] = 1 - df[f'{nombre}_Share_Local']
 
 # ─────────────────────────────────────────────────────────────
+# 4b. HEAD-TO-HEAD (H2H) — historial directo entre los dos equipos
+# ─────────────────────────────────────────────────────────────
+
+print("Calculando H2H...")
+
+# Clave canónica de par (alfabética) para agrupar independientemente de local/visitante
+df['_pair'] = df.apply(
+    lambda r: tuple(sorted([r['Equipo_Local'], r['Equipo_Visitante']])), axis=1
+)
+df['_is_first_local'] = df.apply(
+    lambda r: r['Equipo_Local'] == sorted([r['Equipo_Local'], r['Equipo_Visitante']])[0], axis=1
+)
+
+# Goles y resultados desde la perspectiva del equipo "primero" (alfabético)
+df['_g_first']    = np.where(df['_is_first_local'], df['Goles_Local'], df['Goles_Visitante'])
+df['_g_second']   = np.where(df['_is_first_local'], df['Goles_Visitante'], df['Goles_Local'])
+df['_first_win']  = (df['_g_first'] > df['_g_second']).astype(float)
+df['_draw']       = (df['_g_first'] == df['_g_second']).astype(float)
+df['_first_loss'] = (df['_g_first'] < df['_g_second']).astype(float)
+
+# Medias acumuladas con shift() → excluye el partido actual (sin fuga)
+for col in ['_first_win', '_draw', '_first_loss', '_g_first', '_g_second']:
+    df[f'_cum{col}'] = (
+        df.sort_values('Fecha')
+          .groupby('_pair')[col]
+          .transform(lambda x: x.shift().expanding().mean())
+    )
+
+# Mapear de vuelta a perspectiva Local/Visitante
+df['h2h_win_rate_Local']     = np.where(df['_is_first_local'], df['_cum_first_win'],  df['_cum_first_loss'])
+df['h2h_draw_rate']          = df['_cum_draw']
+df['h2h_win_rate_Visitante'] = np.where(df['_is_first_local'], df['_cum_first_loss'], df['_cum_first_win'])
+df['h2h_goles_avg_Local']    = np.where(df['_is_first_local'], df['_cum_g_first'],    df['_cum_g_second'])
+df['h2h_goles_avg_Visitante']= np.where(df['_is_first_local'], df['_cum_g_second'],   df['_cum_g_first'])
+
+# Rellenar NaN (primer enfrentamiento entre la pareja) con valores neutros
+for c in ['h2h_win_rate_Local', 'h2h_draw_rate', 'h2h_win_rate_Visitante']:
+    df[c] = df[c].fillna(1/3)
+for c in ['h2h_goles_avg_Local', 'h2h_goles_avg_Visitante']:
+    df[c] = df[c].fillna(df['Goles_Local'].mean())    # media global como proxy
+
+# Limpiar columnas temporales
+df.drop(columns=[c for c in df.columns if c.startswith('_')], inplace=True)
+print(f"  → H2H calculado. Columnas añadidas: h2h_win_rate_Local/Visitante, h2h_draw_rate, h2h_goles_avg_*")
+
+# ─────────────────────────────────────────────────────────────
 # 5. FORMATO LARGO Y MEDIAS MÓVILES
 # ─────────────────────────────────────────────────────────────
 
-print("Calculando medias móviles (ventanas 3 y 5)...")
+print("Calculando medias móviles...")
 
 df_local     = df.filter(like='_Local').copy()
 df_visitante = df.filter(like='_Visitante').copy()
@@ -329,7 +396,7 @@ og_vars = [
 
 def add_team_stats(df_long, columnas_excluir, ventanas=None):
     if ventanas is None:
-        ventanas = [3, 5]
+        ventanas = [2, 5]
 
     vars_to_avg = [
         col for col in df_long.columns
@@ -371,18 +438,58 @@ def add_team_stats(df_long, columnas_excluir, ventanas=None):
             )
         )
 
+    # ── trend_xG_5: pendiente de xG en los últimos 5 partidos (forma atacante) ──
+    xg_col = 'Goles_esperados_(xG)'
+    if xg_col in df_long.columns:
+        def _slope(v):
+            if len(v) < 3:
+                return 0.0
+            return linregress(range(len(v)), v).slope
+
+        df_long['trend_xG_5'] = (
+            df_long.groupby('Equipo')[xg_col]
+            .transform(lambda x: x.shift().rolling(5, min_periods=3).apply(_slope, raw=False))
+        )
+        df_long['trend_xG_5'] = df_long['trend_xG_5'].fillna(0)
+
+    # ── forma_vs_historia: ratio forma reciente / media histórica ──
+    # Si > 1 → el equipo rinde por encima de su media (en forma)
+    # Si < 1 → el equipo rinde por debajo (en baja)
+    xg_col_check = 'Goles_esperados_(xG)'
+    if xg_col_check in [v for v in vars_to_avg]:
+        short_key = f'avg_{xg_col_check}_{min(ventanas)}'
+        long_key  = f'avg_{xg_col_check}_total'
+        if short_key in df_long.columns and long_key in df_long.columns:
+            df_long['forma_vs_historia'] = (
+                df_long[short_key] / df_long[long_key].replace(0, np.nan)
+            ).fillna(1.0)
+
     return df_long
 
 
+# ── Filas centinela: garantizan que las medias incluyan el último partido jugado ──
+# shift() excluye el partido actual, así que la última fila real no recoge su propio
+# resultado. Añadimos una fila "fantasma" posterior para que shift() SÍ lo incluya.
+_equipos_con_datos = set(long_df['Equipo'].unique()) & set(equipos_mundial)
+_sentinel_rows = []
+for _eq in _equipos_con_datos:
+    _team = long_df[long_df['Equipo'] == _eq].sort_values('Fecha')
+    if not _team.empty:
+        _last = _team.iloc[-1].copy()
+        _last['Fecha'] = _last['Fecha'] + pd.Timedelta(minutes=1)
+        _last['_sentinel'] = True
+        _sentinel_rows.append(_last)
+
+if _sentinel_rows:
+    long_df['_sentinel'] = False
+    long_df = pd.concat([long_df, pd.DataFrame(_sentinel_rows)], ignore_index=True)
+    long_df = long_df.sort_values('Fecha').reset_index(drop=True)
+    print(f"  → {len(_sentinel_rows)} filas centinela añadidas para medias post-último-partido")
+
 long_df = add_team_stats(long_df, columnas_a_excluir, ventanas=VENTANAS)
 
-xg_share_col = 'xG_Share'
-if xg_share_col in long_df.columns:
-    long_df['forma_vs_historia'] = (
-        long_df['avg_xG_Share_3'] - long_df['avg_xG_Share_total']
-    )
-
 long_df.drop(columns=og_vars, inplace=True, errors='ignore')
+long_df.drop(columns=['_sentinel'], inplace=True, errors='ignore')
 
 print(f"long_df shape tras medias móviles: {long_df.shape}")
 
@@ -391,7 +498,9 @@ print(f"long_df shape tras medias móviles: {long_df.shape}")
 # ─────────────────────────────────────────────────────────────
 
 aux = df[['Fecha', 'Equipo_Local', 'Equipo_Visitante',
-          'Resultado_1X2', 'Goles_Local', 'Goles_Visitante']].copy()
+          'Resultado_1X2', 'Goles_Local', 'Goles_Visitante',
+          'h2h_win_rate_Local', 'h2h_draw_rate', 'h2h_win_rate_Visitante',
+          'h2h_goles_avg_Local', 'h2h_goles_avg_Visitante']].copy()
 
 aux = aux.merge(
     long_df, left_on=['Fecha', 'Equipo_Local'],
@@ -415,7 +524,7 @@ df_final.columns = df_final.columns.str.replace(r'_y$', '_Visitante', regex=True
 
 cols_avg_local = [
     c for c in df_final.columns
-    if c.endswith(('_3_Local', '_5_Local', '_total_Local')) and c.startswith('avg_')
+    if c.endswith(('_2_Local', '_3_Local', '_5_Local', '_total_Local')) and c.startswith('avg_')
 ]
 for col_l in cols_avg_local:
     col_v = col_l.replace('_Local', '_Visitante')
@@ -423,7 +532,7 @@ for col_l in cols_avg_local:
         nombre = col_l.replace('_Local', '')
         df_final[f'diff_{nombre}'] = df_final[col_l] - df_final[col_v]
 
-for sufijo in ['trend_xG_5', 'clean_sheet_rate_5', 'forma_vs_historia']:
+for sufijo in ['trend_xG_5', 'clean_sheet_rate_5']:
     col_l = f'{sufijo}_Local'
     col_v = f'{sufijo}_Visitante'
     if col_l in df_final.columns and col_v in df_final.columns:
@@ -446,6 +555,10 @@ df_final['diff_Valor_Mercado'] = (
     df_final['Valor_Mercado_Millones_Eur_Local']
     - df_final['Valor_Mercado_Millones_Eur_Visitante']
 )
+
+# ── H2H diffs ──
+df_final['diff_h2h_win_rate'] = df_final['h2h_win_rate_Local'] - df_final['h2h_win_rate_Visitante']
+df_final['diff_h2h_goles']    = df_final['h2h_goles_avg_Local'] - df_final['h2h_goles_avg_Visitante']
 
 # ─────────────────────────────────────────────────────────────
 # 8. ELIMINACIÓN DE MULTICOLINEALIDAD
@@ -477,9 +590,11 @@ for i in range(len(corr_matrix.columns)):
                 to_drop.add(col_i if var_i < var_j else col_j)
 
 protegidas = {
-    'diff_xG_Share_3', 'diff_xG_Share_5', 'diff_xG_Share_total',
+    'diff_xG_Share_2', 'diff_xG_Share_3', 'diff_xG_Share_5', 'diff_xG_Share_total',
     'diff_Puntos', 'diff_Tier', 'diff_Valor_Mercado',
-    'diff_trend_xG_5', 'diff_clean_sheet_rate_5', 'diff_forma_vs_historia',
+    'diff_trend_xG_5', 'diff_clean_sheet_rate_5',
+    'diff_h2h_win_rate', 'diff_h2h_goles', 'h2h_draw_rate',
+    'forma_vs_historia_Local', 'forma_vs_historia_Visitante',
 }
 to_drop = [c for c in to_drop if c not in set(exclude_corr) | protegidas]
 df_reduced = df_final.drop(columns=to_drop)
@@ -522,15 +637,95 @@ long_df = long_df.merge(
     on='Equipo', how='left',
 )
 
-df_mundial_export = long_df[long_df['Fecha'] >= FECHA_CORTE].copy()
+df_mundial_export = (
+    long_df[long_df['Equipo'].isin(equipos_mundial)]
+    .sort_values('Fecha')
+    .drop_duplicates('Equipo', keep='last')   # las centinelas son las más recientes → se priorizan
+    .copy()
+)
+# Limpiar columna interna de centinela
+df_mundial_export.drop(columns=['_sentinel'], inplace=True, errors='ignore')
+
 df_historico_export = df_reduced[df_reduced['Fecha'] < FECHA_CORTE].copy()
 
 df_historico_export.to_csv(RUTA_OUT_HISTORICO, index=False, encoding='utf-8-sig')
 df_mundial_export.to_csv(RUTA_OUT_MUNDIAL,    index=False, encoding='utf-8-sig')
+
+# ── partidos_mundial.csv: todos los partidos del Mundial con flag Jugado ──
+# Jugados: extraer resultados parseados del pipeline
+if not df_mundial_jugados.empty:
+    df_wc_played = df[df['Fecha'] >= FECHA_CORTE][
+        ['Fecha', 'Equipo_Local', 'Equipo_Visitante',
+         'Goles_Local', 'Goles_Visitante', 'Resultado_1X2']
+    ].copy()
+    df_wc_played['Jugado'] = True
+    # Evitar duplicados por partidos repetidos en partidos.csv
+    df_wc_played.drop_duplicates(
+        subset=['Equipo_Local', 'Equipo_Visitante', 'Fecha'], keep='last', inplace=True
+    )
+else:
+    df_wc_played = pd.DataFrame()
+
+# No jugados: solo fecha y equipos
+df_wc_unplayed = df_mundial_no_jugados[
+    ['Fecha', 'Equipo_Local', 'Equipo_Visitante']
+].copy()
+df_wc_unplayed['Jugado'] = False
+
+# Eliminar de "no jugados" cualquier partido que ya exista en "jugados"
+if not df_wc_played.empty and not df_wc_unplayed.empty:
+    _keys = ['Equipo_Local', 'Equipo_Visitante', 'Fecha']
+    _ya_jugados = df_wc_played[_keys]
+    df_wc_unplayed = df_wc_unplayed.merge(_ya_jugados, on=_keys, how='left', indicator=True)
+    df_wc_unplayed = df_wc_unplayed[df_wc_unplayed['_merge'] == 'left_only'].drop(columns=['_merge'])
+
+df_partidos_mundial = pd.concat([df_wc_played, df_wc_unplayed], ignore_index=True)
+# Seguridad final: si aún hay duplicados, priorizar la versión jugada
+df_partidos_mundial = (
+    df_partidos_mundial
+    .sort_values('Jugado', ascending=True)   # False primero → True último
+    .drop_duplicates(subset=['Equipo_Local', 'Equipo_Visitante', 'Fecha'], keep='last')
+    .sort_values('Fecha')
+)
+df_partidos_mundial.to_csv(RUTA_OUT_PARTIDOS, index=False, encoding='utf-8-sig')
 
 print(f"Datos historicos:, {df_historico_export.columns}")
 print(f"Datos Mundial:, {df_mundial_export.columns}")
 
 print(f"\n✓ datos_historicos.csv  → {df_historico_export.shape}")
 print(f"✓ datos_mundial.csv     → {df_mundial_export.shape}")
-print(f"✓ partidos_mundial.csv  → guardado antes del split")
+print(f"✓ partidos_mundial.csv  → {df_partidos_mundial.shape} ({df_wc_played.shape[0] if not df_wc_played.empty else 0} jugados, {df_wc_unplayed.shape[0]} pendientes)")
+
+# ── H2H lookup: tabla de pares para el script de predicción ──
+print("Exportando H2H lookup...")
+_teams_wc = sorted(set(equipos_mundial) & (set(df['Equipo_Local'].unique()) | set(df['Equipo_Visitante'].unique())))
+_h2h_rows = []
+for _i, _eq_a in enumerate(_teams_wc):
+    for _eq_b in _teams_wc[_i+1:]:
+        _mask = (
+            ((df['Equipo_Local'] == _eq_a) & (df['Equipo_Visitante'] == _eq_b)) |
+            ((df['Equipo_Local'] == _eq_b) & (df['Equipo_Visitante'] == _eq_a))
+        )
+        _prev = df[_mask]
+        if _prev.empty:
+            continue
+        _wa = _da = _wb = _ga = _gb = 0
+        for _, _p in _prev.iterrows():
+            if _p['Equipo_Local'] == _eq_a:
+                _gla, _glb = _p['Goles_Local'], _p['Goles_Visitante']
+            else:
+                _gla, _glb = _p['Goles_Visitante'], _p['Goles_Local']
+            _ga += _gla; _gb += _glb
+            if _gla > _glb: _wa += 1
+            elif _gla == _glb: _da += 1
+            else: _wb += 1
+        _n = len(_prev)
+        _h2h_rows.append({
+            'Equipo_A': _eq_a, 'Equipo_B': _eq_b,
+            'wins_A': round(_wa/_n, 3), 'draws': round(_da/_n, 3), 'wins_B': round(_wb/_n, 3),
+            'goles_avg_A': round(_ga/_n, 2), 'goles_avg_B': round(_gb/_n, 2),
+            'n_matches': _n,
+        })
+if _h2h_rows:
+    pd.DataFrame(_h2h_rows).to_csv('./Data/h2h_mundial.csv', index=False, encoding='utf-8-sig')
+    print(f"✓ h2h_mundial.csv       → {len(_h2h_rows)} pares exportados")
