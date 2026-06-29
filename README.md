@@ -1,6 +1,6 @@
 # Simulaciones Mundial 2026 ⚽🏆
 
-¿Quién va a ganar el Mundial 2026? Este repositorio responde con datos: scrapea todo el histórico de estadísticas de las selecciones, entrena dos modelos XGBoost y simula **10.000 mundiales** con Monte Carlo para estimar el rendimiento esperado de cada selección — hasta predecir los 104 partidos del torneo. Iré actualizando y explicando todo más en detalle en `@jyts__`.
+¿Quién va a ganar el Mundial 2026? Este repositorio responde con datos: scrapea todo el histórico de estadísticas de las selecciones, entrena dos modelos XGBoost y simula **50.000 mundiales** con Monte Carlo para estimar el rendimiento esperado de cada selección — hasta predecir los 104 partidos del torneo. Iré actualizando y explicando todo más en detalle en `@jyts__`.
 
 ---
 
