@@ -1,0 +1,16 @@
+﻿Variable,Importancia
+diff_Puntos,0.113306746
+diff_Valor_Mercado,0.104667254
+Prob_Implicita_ELO,0.07401197
+diff_avg_Pases_Exitosos_3,0.054660525
+diff_avg_Pases_Pct_3,0.04172062
+avg_Goles_esperados_(xG)_total_Visitante,0.0390291
+clean_sheet_rate_5_Visitante,0.034346137
+diff_avg_xGA_3,0.03129531
+avg_xGA_3_Visitante,0.026030296
+avg_Paradas_3_Visitante,0.024154568
+Peso_Local,0.02366185
+avg_Goles_esperados_(xG)_total_Local,0.023500307
+avg_Paradas_Share_3_Visitante,0.023437437
+avg_Pases_Exitosos_3_Visitante,0.022921607
+avg_Remates_a_puerta_3_Local,0.021666406
