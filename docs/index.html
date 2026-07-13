@@ -40,12 +40,28 @@ footer a{color:var(--ac);text-decoration:none}
 <body>
 
 <header class="wrap">
-  <h1>🏆 Mundial 2026 — Predicciones de Eliminatorias</h1>
-  <p>Probabilidades de avance para cada cruce de octavos a la final, calculadas con modelos de predicción XGBoost, RandomSearchCV + 10.000 simulaciones Monte Carlo.</p>
-  <span class="badge">Datos actualizados al 05-07-2026</span>
+  <h1>🏆 Mundial 2026 — Predicciones desde Semifinales</h1>
+  <p>Probabilidades de avance desde semifinales hasta el campeón, calculadas con modelos XGBoost fine-tuned con datos del Mundial + 50.000 simulaciones Monte Carlo.</p>
+  <p style="margin-top:12px;font-size:1.1rem">★ <b>Campeón predicho:</b> <span class="vd">Argentina</span> ★</p>
+  <span class="badge">Datos actualizados al 12-07-2026 · Fine-Tuning con 96 partidos</span>
 </header>
 
 <main class="wrap">
+
+<h2>📊 Probabilidades por fase <small>Monte Carlo · 50.000 simulaciones desde R4</small></h2>
+<div class="card"><div style="overflow-x:auto">
+<table>
+  <thead><tr>
+    <th>Equipo</th><th class="num">Cuartos (QF)</th><th class="num">Semifinales (SF)</th><th class="num">Final</th><th class="num">Campeón</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><img class="fl" src="https://flagcdn.com/w20/ar.png" srcset="https://flagcdn.com/w40/ar.png 2x" alt=""> Argentina</td><td class="num">100.0%</td><td class="num">72.6%</td><td class="num">72.6%</td><td class="num vd"><b>41.1%</b></td></tr>
+    <tr><td><img class="fl" src="https://flagcdn.com/w20/es.png" srcset="https://flagcdn.com/w40/es.png 2x" alt=""> España</td><td class="num">100.0%</td><td class="num">54.2%</td><td class="num">54.2%</td><td class="num"><b>21.9%</b></td></tr>
+    <tr><td><img class="fl" src="https://flagcdn.com/w20/fr.png" srcset="https://flagcdn.com/w40/fr.png 2x" alt=""> Francia</td><td class="num">100.0%</td><td class="num">45.8%</td><td class="num">45.8%</td><td class="num"><b>21.0%</b></td></tr>
+    <tr><td><img class="fl" src="https://flagcdn.com/w20/gb-eng.png" srcset="https://flagcdn.com/w40/gb-eng.png 2x" alt=""> Inglaterra</td><td class="num">100.0%</td><td class="num">27.4%</td><td class="num">27.4%</td><td class="num"><b>16.0%</b></td></tr>
+  </tbody>
+</table>
+</div></div>
 
 <h2>🏆 Top 10 — Posibles campeones <small>intervalo de confianza en P(Campeón)</small></h2>
 <div class="card"><div style="overflow-x:auto">
@@ -57,48 +73,29 @@ footer a{color:var(--ac);text-decoration:none}
 </table>
 </div></div>
 
-<h2>🗺️ Predicciones de Eliminatorias <small>resultado más probable de cada cruce</small></h2>
+<h2>🗺️ Predicciones de Semifinales a la Final <small>resultado más probable de cada cruce</small></h2>
 <div id="cuadro"></div>
 
-<div class="aviso"><b>⚠️ Esto son probabilidades, no certezas.</b> El modelo acierta ~65% de los ganadores en datos
-de prueba; un favorito del 80% pierde 1 de cada 5 veces. Nada de esta página es consejo de apuestas.</div>
+<div class="aviso"><b>⚠️ Esto son probabilidades, no certezas.</b> El modelo con fine-tuning post-Mundial mejora la calibración; un favorito del 80% pierde 1 de cada 5 veces. Nada de esta página es consejo de apuestas.</div>
 
 <footer>Generado con el modelo de
-  <a href="https://github.com/Axelcodeml/Mundial2026_Predictions/">Simulaciones_Mundial</a> · @Alexcodeml
+  <a href="https://github.com/Axelcodeml/Mundial2026_Predictions/">Simulaciones_Mundial</a> · @Axelcodeml
 </footer>
 </main>
 
 <script>
 const CAMPEON = [
-  {equipo:"Francia",    p_media:18.8, p_min:18.2, p_max:19.6, ic_95:1.3},
-  {equipo:"Inglaterra", p_media:18.1, p_min:17.6, p_max:18.6, ic_95:1.0},
-  {equipo:"Argentina",  p_media:14.4, p_min:13.5, p_max:15.3, ic_95:1.6},
-  {equipo:"España",     p_media:12.6, p_min:12.1, p_max:13.0, ic_95:0.9},
-  {equipo:"Brasil",     p_media: 8.3, p_min: 8.1, p_max: 8.6, ic_95:0.5},
-  {equipo:"Bélgica",    p_media: 7.9, p_min: 7.2, p_max: 8.2, ic_95:0.9},
-  {equipo:"Marruecos",  p_media: 6.8, p_min: 6.4, p_max: 7.1, ic_95:0.6},
-  {equipo:"Portugal",   p_media: 4.3, p_min: 4.0, p_max: 4.7, ic_95:0.7},
-  {equipo:"Colombia",   p_media: 3.4, p_min: 3.0, p_max: 3.8, ic_95:0.7},
-  {equipo:"México",     p_media: 1.8, p_min: 1.7, p_max: 2.0, ic_95:0.3}
+  {equipo:"Argentina",  p_media:40.9, p_min:40.0, p_max:41.9, ic_95:1.7},
+  {equipo:"España",     p_media:22.4, p_min:21.5, p_max:22.9, ic_95:1.3},
+  {equipo:"Francia",    p_media:20.9, p_min:20.2, p_max:21.4, ic_95:1.1},
+  {equipo:"Inglaterra", p_media:15.9, p_min:15.5, p_max:16.2, ic_95:0.7}
 ];
 
 const CUADRO = [
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"Francia",    visitante:"Paraguay",   marcador:"2-0",       avanza:"Francia",    pL:87.4, pV:12.6, upset:14.4, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"Marruecos",  visitante:"Canadá",     marcador:"2-0",       avanza:"Marruecos",  pL:68.6, pV:31.4, upset:45.8, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"Portugal",   visitante:"España",     marcador:"1-2",       avanza:"España",     pL:36.9, pV:63.1, upset:58.4, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"EE. UU.",    visitante:"Bélgica",    marcador:"0-2",       avanza:"Bélgica",    pL:28.7, pV:71.3, upset:40.2, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"Brasil",     visitante:"Noruega",    marcador:"2-0",       avanza:"Brasil",     pL:73.8, pV:26.2, upset:35.4, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"México",     visitante:"Inglaterra", marcador:"0-2",       avanza:"Inglaterra", pL:27.2, pV:72.8, upset:37.4, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"Argentina",  visitante:"Egipto",     marcador:"2-0",       avanza:"Argentina",  pL:82.1, pV:17.9, upset:21.8, detalle:"Tiempo regular"},
-  {fase:"Octavos",      fechas:"4 – 7 jul", local:"Suiza",      visitante:"Colombia",   marcador:"1-1 (pen)", avanza:"Colombia",   pL:43.0, pV:57.0, upset:75.3, detalle:"Empate → penaltis"},
-  {fase:"Cuartos",      fechas:"9 – 11 jul", local:"Francia",   visitante:"Marruecos",  marcador:"1-1 (pen)", avanza:"Francia",    pL:57.2, pV:42.8, upset:74.9, detalle:"Empate → penaltis"},
-  {fase:"Cuartos",      fechas:"9 – 11 jul", local:"España",    visitante:"Bélgica",    marcador:"2-1",       avanza:"España",     pL:60.3, pV:39.7, upset:65.7, detalle:"Tiempo regular"},
-  {fase:"Cuartos",      fechas:"9 – 11 jul", local:"Brasil",    visitante:"Inglaterra", marcador:"1-1 (pen)", avanza:"Inglaterra", pL:38.4, pV:61.6, upset:62.4, detalle:"Empate → penaltis"},
-  {fase:"Cuartos",      fechas:"9 – 11 jul", local:"Argentina", visitante:"Colombia",   marcador:"2-1",       avanza:"Argentina",  pL:63.6, pV:36.4, upset:57.2, detalle:"Tiempo regular"},
-  {fase:"Semifinales",  fechas:"14 – 15 jul", local:"Francia",  visitante:"España",     marcador:"1-1 (pen)", avanza:"Francia",    pL:52.5, pV:47.5, upset:90.4, detalle:"Empate → penaltis"},
-  {fase:"Semifinales",  fechas:"14 – 15 jul", local:"Inglaterra",visitante:"Argentina", marcador:"1-1 (pen)", avanza:"Inglaterra", pL:57.7, pV:42.3, upset:73.5, detalle:"Empate → penaltis"},
-  {fase:"3er Puesto",   fechas:"18 jul",      local:"España",    visitante:"Argentina", marcador:"1-1 (pen)", avanza:"España",     pL:55.3, pV:44.7, upset:80.9, detalle:"Empate → penaltis"},
-  {fase:"Final",        fechas:"19 jul",      local:"Francia",   visitante:"Inglaterra", marcador:"1-1 (pen)", avanza:"Francia",    pL:50.9, pV:49.1, upset:96.3, detalle:"Empate → penaltis"}
+  {fase:"Semifinales",  fechas:"14 – 15 jul", local:"Francia",    visitante:"España",     marcador:"2-4",       avanza:"España",     pL:45.7, pV:54.3, upset:84.0, detalle:"Tiempo regular"},
+  {fase:"Semifinales",  fechas:"14 – 15 jul", local:"Inglaterra", visitante:"Argentina",  marcador:"1-2",       avanza:"Argentina",  pL:27.4, pV:72.6, upset:37.7, detalle:"Tiempo regular"},
+  {fase:"3er Puesto",   fechas:"18 jul",      local:"Francia",    visitante:"Inglaterra", marcador:"2-3",       avanza:"Inglaterra", pL:37.3, pV:62.7, upset:59.5, detalle:"Tiempo regular"},
+  {fase:"Final",        fechas:"19 jul",      local:"España",     visitante:"Argentina",  marcador:"1-2",       avanza:"Argentina",  pL:39.2, pV:60.8, upset:64.5, detalle:"Tiempo regular"}
 ];
 
 const ISO = {
